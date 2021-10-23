@@ -15,7 +15,7 @@ Others are not so lucky and have to revert all the changes they made and move on
 1. Initial commit.
 2. Very naive implementation for ArrrayList.
   1. Copy the instance, do all operations on that copied instance, and replace the original instance with the copied instance if "commit".
-  2. If "rollback" just discard the copied instance.
+  2. If "rollback", just discard the copied instance.
 3. Multiple transactions can be ongoing.
   1. Inner transaction behave just the same.
   2. Outer transaction will end the inner transactions the same way it ends, when it ends.
