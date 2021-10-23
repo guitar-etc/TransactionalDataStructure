@@ -65,6 +65,34 @@ public class Test {
 		catch (IllegalStateException e) {
 			// good
 		}
+		
+		tx = TX.start();
+		
+		list.add("me");
+		list.add("you");
+		log("list", list.size(), list);
+		
+		tx2 = TX.start();
+		list.add("Mine");
+		list.add("Yours");
+		log("list", list.size(), list);
+		
+		tx2.rollback();
+		tx2 = TX.start();
+		list.add("His");
+		list.add("Hers");
+		log("list", list.size(), list);
+		
+		tx.rollback();
+		log("list", list.size(), list);
+		
+		try {
+			tx2.commit();
+			throw new Error();
+		}
+		catch (IllegalStateException e) {
+			// good
+		}
 	}
 	
 	public static void log(Object...objects) {
