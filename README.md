@@ -21,8 +21,11 @@ Others are not so lucky and have to revert all the changes they made and move on
   2. Outer transaction will end the inner transactions the same way it ends, when it ends.
 
 ### TODO.
-1. Handle Multi-Thread
-2. Shared lock? Exclusive Lock?
-  1. Copy the instance only if a modify operation is performed.
-4. Allow non-transactional operations during a transaction?
-5. Copying the entire list is costly.
+1. ~~Handle Multi-Thread~~
+2. ~~Shared lock? Exclusive Lock?~~
+3. Will not allow. ~~Allow non-transactional operations during a transaction?
+4. Copying the entire list is costly. Copy the instance only if a modify operation is performed for better performance.
+  1. Or maintain addSet and deleteSet to apply the changes lazily to "impl". Implementing conditional logic for all public methods based on what's in addSet and deleteSet feels too complicated effort.
+  2. Come up with some lazy clone technique?
+    1. clone on write? clone on 10+ writes?
+5. Handle Multi-Thread better.
