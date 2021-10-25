@@ -4,95 +4,196 @@ import java.util.*;
 
 import etc.transactional.*;
 
+import static java.util.Arrays.*;
+
 public class Test {
-	public static void main(String[] args) {
-		var tx = TX.start();
-		
+	public static void main(String[] args) throws InterruptedException {
+//		test_single_thread();
+		test_multi_thread();
+	}
+	
+	static void hold(long mili) {
+		try {
+			Thread.sleep(1000);
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
+	}
+	
+	// Tests that later transaction waits for prior transaction to end before starting.
+	static void test_multi_thread() throws InterruptedException {
 		var list = new TArrayList<>();
+		int run1WaitTime = 10;
+		long[] start = {System.currentTimeMillis()};
+		long[] run2EndTime = {-1};
+		boolean[] run2DoCommit = {false};
 		
-		list.add("one");
-		list.add("two");
-		log("list", list.size(), list);
+		Runnable run1 = () -> {
+			TX.start(tx -> {
+				hold(run1WaitTime);
+				list.add("run1");
+//				log(list);
+			});
+		};
 		
-		tx.commit();
-		log("list", list.size(), list);
+		Runnable run2 = () -> {
+			TX.start(tx -> {
+				list.add("run2");
+//				log(list);
+//				log(System.currentTimeMillis() - start[0] > run1WaitTime);
+				run2EndTime[0] = System.currentTimeMillis();
+				if (run2DoCommit[0]) {
+					tx.commit();
+				}
+			});
+		};
 		
-		tx = TX.start();
+		Thread th1 = new Thread(run1);
+		Thread th2 = new Thread(run2);
 		
-		list.add("one");
-		list.add("two");
-		log("list", list.size(), list);
+		th1.start();
+		hold(run1WaitTime / 10);
+		th2.start();
 		
-		tx.rollback();
-		log("list", list.size(), list);
+		th1.join();
+		th2.join();
+		log(run2EndTime[0] - start[0] > run1WaitTime);
+		log(list.isEmpty());
 		
-		tx = TX.start();
+		start[0] = System.currentTimeMillis();
+		th1 = new Thread(run1);
+		th2 = new Thread(run2);
+		run2DoCommit[0] = true;
 		
-		list = new TArrayList<>();
+		th2.start();
+		hold(run1WaitTime / 10);
+		th1.start();
 		
-		list.add("First");
-		log("list", list.size(), list);
+		th2.join();
+		log(run2EndTime[0] - start[0] < run1WaitTime);
+		log(list.equals(asList("run2")));
 		
-		log("tx2");
-		var tx2 = TX.start();
+		th1.join();
+		log(list.equals(asList("run2")));
 		
-		list.add("Second");
-		log("list", list.size(), list);
+		list.clear();
 		
-		tx2.rollback();
-		log("list", list.size(), list);
 		
-		tx.rollback();
-		log("list", list.size(), list);
+		TX.start(tx -> {
+			list.add("First");
+			Runnable run3 = () -> {
+				TX.start(
+						tx, tx2 -> {
+					hold(run1WaitTime);
+					list.add("run3");
+					log(list);
+				});
+			};
+			Thread th3 = new Thread(run3);
+			th3.start();
+			list.add("Second");
+			log(list);
+		});
+		log(list.isEmpty(), list);
+	}
+	
+	public static void test_single_thread() {
+		final var list = new TArrayList<>();
+		TX.start(tx -> {
+			list.add("one");
+			list.add("two");
+			log(asList("one", "two").equals(list));
+			
+			tx.commit();
+			log(asList("one", "two").equals(list));
+		});
 		
-		tx = TX.start();
 		
-		list.add("me");
-		list.add("you");
-		log("list", list.size(), list);
+		TX.start(tx -> {
+			list.add("one");
+			list.add("two");
+			log(asList("one", "two", "one", "two").equals(list));
+			
+			tx.rollback();
+			log(asList("one", "two").equals(list));
+		});
 		
-		tx2 = TX.start();
-		list.add("Mine");
-		list.add("Yours");
-		log("list", list.size(), list);
+		var list2 = new TArrayList<>();
+		TX.start(tx -> {
+			list2.add("First");
+			log(asList("First").equals(list2));
+			
+			TX.start(tx2 -> {
+				list2.add("Second");
+				log(asList("First", "Second").equals(list2));
+				
+				tx2.rollback();
+				log(asList("First").equals(list2));
+				
+				tx.rollback();
+				log(asList().equals(list2));
+			});
+		});
 		
-		tx.rollback();
-		log("list", list.size(), list);
-		try {
-			tx2.commit();
-			throw new Error();
-		}
-		catch (IllegalStateException e) {
-			// good
-		}
+		TX.start(tx -> {
+			list2.add("me");
+			list2.add("you");
+			log(asList("me", "you").equals(list2));
+			TX.start(tx2 -> {
+				list2.add("Mine");
+				list2.add("Yours");
+				log(asList("me", "you", "Mine", "Yours").equals(list2));
+				
+				tx.rollback();
+				log(asList().equals(list2));
+				
+				try {
+					tx2.commit();
+					throw new Error();
+				}
+				catch (IllegalStateException e) {
+					// good
+				}
+			});
+		});
 		
-		tx = TX.start();
+		TX.start(tx -> {
+			list2.add("me");
+			list2.add("you");
+			log(asList("me", "you").equals(list2));
+			
+			TX.start(tx2 -> {
+				list2.add("Mine");
+				list2.add("Yours");
+				log(asList("me", "you", "Mine", "Yours").equals(list2));
+				
+				tx2.rollback();
+			});
+			
+			TX.start(tx2 -> {
+				list2.add("His");
+				list2.add("Hers");
+				log(asList("me", "you", "His", "Hers").equals(list2));
+				
+				tx.rollback();
+				log(asList().equals(list2));
+				
+				try {
+					tx2.commit();
+					throw new Error();
+				}
+				catch (IllegalStateException e) {
+					// good
+				}
+			});
+		});
 		
-		list.add("me");
-		list.add("you");
-		log("list", list.size(), list);
 		
-		tx2 = TX.start();
-		list.add("Mine");
-		list.add("Yours");
-		log("list", list.size(), list);
-		
-		tx2.rollback();
-		tx2 = TX.start();
-		list.add("His");
-		list.add("Hers");
-		log("list", list.size(), list);
-		
-		tx.rollback();
-		log("list", list.size(), list);
-		
-		try {
-			tx2.commit();
-			throw new Error();
-		}
-		catch (IllegalStateException e) {
-			// good
-		}
+		var temp = new TArrayList<>();
+		TX.start(tx -> {
+			temp.add("Not empty");
+		});
+		log(temp.isEmpty());
 	}
 	
 	public static void log(Object...objects) {
