@@ -1,11 +1,16 @@
 package etc.transactional;
 
-public class TXCancelledException extends RuntimeException {
+/**
+ * Extends Error, hoping no application code will catch it.
+ * @author pycs9
+ *
+ */
+public class TXCancelledError extends Error {
 	private static final long serialVersionUID = 1L;
 
 	private TX tx;
 
-	public TXCancelledException(TX tx) {
+	public TXCancelledError(TX tx) {
 		this.tx = tx;
 	}
 

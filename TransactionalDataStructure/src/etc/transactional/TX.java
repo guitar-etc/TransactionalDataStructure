@@ -22,6 +22,7 @@ public class TX implements AutoCloseable {
 		return stack.peek();
 	}
 	
+	// skip the top of the stack?
 	public static TX getClosestWith(Object obj) {
 		for (TX tx : stack) {
 			if (tx.lockedObjects.containsKey(obj)) {
@@ -67,7 +68,7 @@ public class TX implements AutoCloseable {
 		// In order to lock less, tx need to know all the locks it needs to acquire and acquire them upon start.
 		// Otherwise, 2 tx's can easily go into a deadlock or the data can be corrupted.
 		// So, TXCancelledException should technically never be thrown.
-		catch (TXCancelledException e) {
+		catch (TXCancelledError e) {
 			if (e.getTx() != _tx) {
 				throw new Error("_tx: " + _tx, e);
 			}
@@ -171,7 +172,7 @@ public class TX implements AutoCloseable {
 	
 	private void checkCancelled() {
 		if (isCancelled) {
-			throw new TXCancelledException(this);
+			throw new TXCancelledError(this);
 		}
 	}
 	
