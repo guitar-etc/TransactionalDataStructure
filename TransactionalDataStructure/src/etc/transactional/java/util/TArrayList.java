@@ -24,12 +24,14 @@ import etc.transactional.*;
 
 public class TArrayList<E> extends ArrayList<E> {
 	private static final long serialVersionUID = 1L;
+	// Do I need to use impl? Can I just use super?
 	private ArrayList<E> impl = new ArrayList<>();
 	
 	@SuppressWarnings("unchecked")
 	private ArrayList<E> impl() {
 		var tx = TX.getOngoing();
 		if (tx != null) {
+//			tx.lock();
 			var txLocal = (ArrayList<E>)tx.lockedObjects.get(this);
 			
 			if (txLocal != null) {
