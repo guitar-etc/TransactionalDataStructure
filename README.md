@@ -1,6 +1,7 @@
 # Transactional Data Structure
 
 ***
+Read Test.java for use cases
 
 Jdk data structures that supports "commit" and "rollback" like DBs.
 
